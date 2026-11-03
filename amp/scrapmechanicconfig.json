@@ -1,0 +1,129 @@
+[
+  {
+    "DisplayName": "Steam installation directory",
+    "Category": "Scrap Mechanic",
+    "Description": "Existing logged-in Steam installation. No SteamCMD download.",
+    "FieldName": "SteamDirectory",
+    "InputType": "text",
+    "ParamFieldName": "SteamDirectory",
+    "DefaultValue": "C:\\Program Files (x86)\\Steam",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Scrap Mechanic executable",
+    "Category": "Scrap Mechanic",
+    "Description": "Exact installed ScrapMechanic.exe path used for process identity.",
+    "FieldName": "GameExecutable",
+    "InputType": "text",
+    "ParamFieldName": "GameExecutable",
+    "DefaultValue": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Scrap Mechanic\\Release\\ScrapMechanic.exe",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Launch method",
+    "Category": "Scrap Mechanic",
+    "Description": "Steam is the default. SteamUri is optional and may prompt. Test arguments with a disposable world.",
+    "FieldName": "LaunchMode",
+    "InputType": "enum",
+    "ParamFieldName": "LaunchMode",
+    "DefaultValue": "Steam",
+    "EnumValues": {
+      "Steam": "Steam -applaunch",
+      "Executable": "Direct executable with Steam running",
+      "SteamUri": "Steam URI (test prompts and arguments)"
+    }
+  },
+  {
+    "DisplayName": "Game launch arguments",
+    "Category": "Scrap Mechanic",
+    "Description": "Existing Steam authentication is required. Last save selection remains Steam/game controlled.",
+    "FieldName": "Arguments",
+    "InputType": "text",
+    "ParamFieldName": "Arguments",
+    "DefaultValue": "-dedicated_server -last_save",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Startup timeout",
+    "Category": "Scrap Mechanic",
+    "Description": "Timeout leaves pending launch blocked until inspected.",
+    "FieldName": "StartupTimeoutSeconds",
+    "InputType": "number",
+    "ParamFieldName": "StartupTimeoutSeconds",
+    "DefaultValue": "120",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Process observation interval",
+    "Category": "Scrap Mechanic",
+    "Description": "Process existence for this interval does not prove multiplayer readiness.",
+    "FieldName": "StartupStableSeconds",
+    "InputType": "number",
+    "ParamFieldName": "StartupStableSeconds",
+    "DefaultValue": "3",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Graceful exit timeout",
+    "Category": "Scrap Mechanic",
+    "Description": "Wait for WM_CLOSE exit. Timeout never causes automatic game termination.",
+    "FieldName": "ShutdownTimeoutSeconds",
+    "InputType": "number",
+    "ParamFieldName": "ShutdownTimeoutSeconds",
+    "DefaultValue": "120",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Stopped backup settle delay",
+    "Category": "Scrap Mechanic",
+    "Description": "Additional delay after process exit; does not prove a save flush.",
+    "FieldName": "StoppedSettleSeconds",
+    "InputType": "number",
+    "ParamFieldName": "StoppedSettleSeconds",
+    "DefaultValue": "3",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Survival save directory",
+    "Category": "Scrap Mechanic",
+    "Description": "Leave empty to discover exactly one User_*/Save/Survival directory in the agent user profile.",
+    "FieldName": "SaveDirectory",
+    "InputType": "text",
+    "ParamFieldName": "SaveDirectory",
+    "DefaultValue": "",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Backup destination",
+    "Category": "Scrap Mechanic",
+    "Description": "Absolute directory outside the save tree. The game user must have write access.",
+    "FieldName": "BackupDirectory",
+    "InputType": "text",
+    "ParamFieldName": "BackupDirectory",
+    "DefaultValue": "C:\\ScrapMechanicHost\\Backups",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Backups retained per save directory",
+    "Category": "Scrap Mechanic",
+    "Description": "Prunes only verified project archives after a new verified backup succeeds.",
+    "FieldName": "BackupRetention",
+    "InputType": "number",
+    "ParamFieldName": "BackupRetention",
+    "DefaultValue": "10",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Back up after stop (including restart)",
+    "Category": "Scrap Mechanic",
+    "Description": "Failed requested backup blocks relaunch until stop or backup succeeds.",
+    "FieldName": "BackupOnStop",
+    "InputType": "checkbox",
+    "ParamFieldName": "BackupOnStop",
+    "DefaultValue": "true",
+    "EnumValues": {
+      "False": "false",
+      "True": "true"
+    }
+  }
+]

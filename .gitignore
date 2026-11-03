@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+artifacts/
+*.user
+*.bundle
+.DS_Store
+__pycache__/
+agent.json
+client.json
+host-settings.json

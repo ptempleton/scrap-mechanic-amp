@@ -1,0 +1,8 @@
+[
+  {
+    "ConfigFile": "host-settings.json",
+    "AutoMap": true,
+    "Importable": true,
+    "ConfigType": "json"
+  }
+]

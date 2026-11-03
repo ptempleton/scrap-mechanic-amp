@@ -1,0 +1,7 @@
+{
+  "PipeName": "ScrapMechanicHost",
+  "AmpIdentitySid": "REPLACE_WITH_AMP_WINDOWS_ACCOUNT_SID",
+  "SettingsFile": "C:\\AMPDatastore\\Instances\\ScrapMechanic01\\scrapmechanic\\host-settings.json",
+  "DataDirectory": "C:\\ScrapMechanicHost\\Data",
+  "AllowEmergencyTermination": false
+}

@@ -1,0 +1,30 @@
+name: build-and-test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test
+        shell: pwsh
+        run: ./scripts/Test.ps1
+      - name: Publish Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/Build.ps1 -SelfContained
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: scrapmechanic-host-win-x64
+          path: artifacts/publish/

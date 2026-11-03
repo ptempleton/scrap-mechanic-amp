@@ -1,0 +1,5 @@
+{
+  "PipeName": "ScrapMechanicHost",
+  "AgentIdentitySid": "REPLACE_WITH_GAME_WINDOWS_ACCOUNT_SID",
+  "RequestTimeoutSeconds": 1800
+}

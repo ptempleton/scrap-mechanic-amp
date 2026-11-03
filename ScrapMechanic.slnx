@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/ScrapMechanic.Host.Core/ScrapMechanic.Host.Core.csproj" />
+  <Project Path="src/ScrapMechanic.Host/ScrapMechanic.Host.csproj" />
+  <Project Path="tests/ScrapMechanic.Host.Tests/ScrapMechanic.Host.Tests.csproj" />
+</Solution>

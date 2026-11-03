@@ -1,0 +1,14 @@
+{
+  "SteamDirectory": "C:\\Program Files (x86)\\Steam",
+  "GameExecutable": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Scrap Mechanic\\Release\\ScrapMechanic.exe",
+  "LaunchMode": "Steam",
+  "Arguments": "-dedicated_server -last_save",
+  "StartupTimeoutSeconds": 120,
+  "StartupStableSeconds": 3,
+  "ShutdownTimeoutSeconds": 120,
+  "StoppedSettleSeconds": 3,
+  "SaveDirectory": "",
+  "BackupDirectory": "C:\\ScrapMechanicHost\\Backups",
+  "BackupRetention": 10,
+  "BackupOnStop": true
+}

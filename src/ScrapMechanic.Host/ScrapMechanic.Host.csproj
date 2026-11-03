@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>ScrapMechanic.Host</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ScrapMechanic.Host.Core/ScrapMechanic.Host.Core.csproj" />
+  </ItemGroup>
+</Project>

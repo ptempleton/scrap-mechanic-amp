@@ -57,7 +57,19 @@ passed 41 portable C# tests and 10 Python tests, including a new test using pers
 state: missing Steam fails without dispatch/lock, and retry succeeds after Steam
 becomes available and the agent is recreated. Dispatched-launch exceptions and
 timeouts continue to preserve their locks. Windows CI results are linked in the
-release notes. This fix has not yet been installed or live-tested on the game host.
+release notes.
+
+The review.3 portable binaries were installed on the Windows host on 2026-11-09
+after a successful graceful stop and stopped-world backup. All four release files
+in both the agent and bridge directories matched the package hashes. The retained
+native Windows apphosts passed their help smoke tests, the new agent answered
+Stopped, and configuration/persistent-state file hashes were unchanged. Rollback
+copies of the replaced binaries were retained.
+
+After restarting the AMP instance, AMP Start succeeded and the same game process
+remained Running for over a minute. Multiplayer/world checks after this update
+await operator confirmation. The missing-Steam case has automated regression
+coverage; a deliberate live missing-Steam or power-interruption trial was not run.
 
 The operator reported 0% GPU utilization for the game process. This is an
 observation, not a performance guarantee or evidence that no graphics device is
@@ -82,11 +94,11 @@ required. The Windows user must remain signed in.
 
 ## Package build versus deployed build
 
-The deployed native Windows build predates the review.3 prerequisite fix described
-above. The review ZIP contains a fresh portable DLL build compiled
-on macOS, with debug symbols omitted, for use with `dotnet.exe` on Windows. These
-exact review binaries have not been installed into the live host. Packaging does
-not change the running host, its schedule, world, configuration or binaries.
+The review.3 ZIP contains portable DLLs compiled on macOS with debug symbols
+omitted. Those exact four release files are now deployed in both Windows binary
+directories, using the existing native apphosts and installed .NET 10 runtime.
+The separate update operation and its live verification are recorded above;
+running the package builder itself does not install or change the game host.
 
 See `PACKAGE-VERIFICATION.md` in the generated archive for the packaging run's
 executed checks. See [../TESTING.md](../TESTING.md) for the acceptance procedure.

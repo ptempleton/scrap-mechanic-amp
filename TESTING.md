@@ -82,8 +82,11 @@ and persistence evidence; the module acceptance cases above remain pending.
    account succeeds. Remote named-pipe access must be denied; no TCP management
    listener is installed. Local administrators are trusted system administrators,
    not a security boundary this agent can exclude.
-3. **Startup timeout:** with the game stopped, make Steam require a confirmation or
-   use an invalid executable path. Confirm timeout/error and no automatic retry.
+3. **Startup preparation and timeout:** with the game stopped, close Steam or use
+   a nonexistent executable path. Confirm an error without `LaunchUnresolved`;
+   correct it and retry Start without acknowledgement, also after agent restart.
+   Separately, make Steam require a launch confirmation in a disposable setup.
+   A dispatched launch that times out must retain the lock and must not retry.
    Cancel Steam's pending launch, inspect status, then explicitly acknowledge it.
 4. **Partial stop recovery:** induce backup failure on a disposable world, recreate
    the bridge, and ensure Start stays blocked. Fix storage, use CLI backup, then start.

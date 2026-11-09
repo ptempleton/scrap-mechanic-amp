@@ -131,12 +131,15 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
         }
         if (launchGuard.Pending) throw new HostOperationException("An earlier launch is unresolved. Inspect Steam before acknowledge-launch CONFIRM.");
         var settings = Settings();
+        AssertStoppedProcesses();
+        // Missing Steam/files or other preparation errors have not sent a launch.
+        // They must remain retryable without acknowledging an uncertain launch.
+        var launch = platform.PrepareLaunch(settings);
         activeSettings = settings;
         launchGuard.ActiveSettings = settings;
-        AssertStoppedProcesses();
         launchGuard.MarkPending(); // Survives an agent crash or a delayed Steam launch.
         log.Write("start_requested", "Requesting Steam game startup.", new { settings.LaunchMode });
-        platform.Launch(settings);
+        launch();
         await ObserveStable(settings);
     }
 

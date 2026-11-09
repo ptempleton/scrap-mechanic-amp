@@ -6,7 +6,9 @@ public interface IGamePlatform
 {
     int SessionId { get; }
     IReadOnlyList<GameProcess> FindGames(); // All sessions; inaccessible candidates must fail closed.
-    void Launch(GameSettings settings);
+    // Preparation must not issue a launch. Only the returned action may start
+    // a process or hand a launch to Steam, including when that action throws.
+    Action PrepareLaunch(GameSettings settings);
     bool IsAlive(GameProcess process);
     bool RequestClose(GameProcess process);
     void EmergencyKill(GameProcess process);

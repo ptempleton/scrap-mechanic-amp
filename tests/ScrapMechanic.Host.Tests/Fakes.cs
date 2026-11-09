@@ -12,14 +12,19 @@ internal sealed class FakePlatform : IGamePlatform
     public bool CloseExits = true;
     public bool HasWindow = true;
     public bool LaunchThrows;
+    public bool SteamAvailable = true;
     public bool InspectionThrows;
     private int nextId = 100;
     public IReadOnlyList<GameProcess> FindGames() => InspectionThrows ? throw new IOException("Inspection denied") : Games.ToArray();
-    public void Launch(GameSettings settings)
+    public Action PrepareLaunch(GameSettings settings)
     {
-        Calls.Add("launch");
-        if (LaunchThrows) throw new IOException("Steam unavailable");
-        if (LaunchAppears) Games.Add(new(nextId++, nextId, settings.GameExecutable, 1));
+        if (!SteamAvailable) throw new HostOperationException("Start Steam in the agent's desktop session before launching the host.");
+        return () =>
+        {
+            Calls.Add("launch");
+            if (LaunchThrows) throw new IOException("Launch result is uncertain");
+            if (LaunchAppears) Games.Add(new(nextId++, nextId, settings.GameExecutable, 1));
+        };
     }
     public bool IsAlive(GameProcess process) => Games.Contains(process);
     public bool RequestClose(GameProcess process)

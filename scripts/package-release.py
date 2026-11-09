@@ -171,7 +171,7 @@ def main():
     build.add_argument('--publish-directory', type=Path, required=True)
     build.add_argument('--verification-report', type=Path, required=True)
     build.add_argument('--output-directory', type=Path, default=ROOT / 'artifacts/releases')
-    build.add_argument('--version', default='0.1.0-review.2')
+    build.add_argument('--version', default='0.1.0-review.3')
     build.add_argument('--source-revision', required=True)
     check = sub.add_parser('verify')
     check.add_argument('archive', type=Path)

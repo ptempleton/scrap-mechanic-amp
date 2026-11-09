@@ -1,6 +1,6 @@
 # Shareable validation record
 
-Evidence date: 2026-11-02. This summary excludes private account names, addresses,
+Evidence dates: 2026-11-02 through 2026-11-09. This summary excludes private account names, addresses,
 Steam IDs, authentication/session material, raw logs and world data. Detailed
 operator notes remain outside the review archive.
 
@@ -33,7 +33,31 @@ operator notes remain outside the review archive.
 | Graceful stop and backup | Several AMP Stop operations completed with no game PID and a verified new backup. Normal stop plus backup took about 5–6 seconds in observed trials. No force termination was requested. |
 | Persistence | One valid trial passed by operator observation after player logout and Stop/Start. An earlier trial used an unsuitable marker and is inconclusive. WM_CLOSE is not proven to explicitly flush saves. |
 | AMP Schedule Restart | Console showed successful stopped backup followed by a new game PID; operator observed game exit/relaunch. A daily 04:00 trigger was enabled by the operator; its unattended firing was not observed. |
+| Normal AMP Restart | Operator separately confirmed the normal Restart action was tested on 2026-11-03. |
 | Intended-world handoff | After testing, the operator selected the intended world, AMP launched it, and the operator confirmed joining it. |
+
+## Interrupted-start recovery and prerequisite fix, 2026-11-09
+
+After a power interruption, the existing agent answered in the interactive Windows
+session but rejected AMP Start with `LaunchUnresolved`. The operator confirmed
+Steam was open with no pending launch/dialog and had manually played and exited
+the game. Running the documented `acknowledge-launch --confirm` command returned
+Stopped, then AMP Start succeeded. The same game process remained observed for
+over a minute. Multiplayer and world persistence after this recovery were not
+rechecked by the automation.
+
+Code inspection found that earlier builds recorded a pending launch before
+checking Steam availability and executable prerequisites. A preparation failure
+could therefore leave a false unresolved-launch lock without dispatching a launch.
+The first failed attempt's agent log was not captured, so that precise trigger
+is not proven for the reported outage.
+
+Version 0.1.0-review.3 moves those checks before recording the lock. The macOS suite
+passed 41 portable C# tests and 10 Python tests, including a new test using persisted
+state: missing Steam fails without dispatch/lock, and retry succeeds after Steam
+becomes available and the agent is recreated. Dispatched-launch exceptions and
+timeouts continue to preserve their locks. Windows CI results are linked in the
+release notes. This fix has not yet been installed or live-tested on the game host.
 
 The operator reported 0% GPU utilization for the game process. This is an
 observation, not a performance guarantee or evidence that no graphics device is
@@ -42,7 +66,8 @@ required. The Windows user must remain signed in.
 ## Coverage still open
 
 - Restore a real test-world archive and validate in-game state; live retention pruning.
-- Reboot/login recovery and operation with no logged-in game session.
+- Unattended reboot/login recovery and operation with no logged-in game session.
+  Manual recovery after the reported power interruption is recorded above.
 - Actual delayed stop/large-backup timing under AMP. `App.ExitTimeout=900` did not
   survive AMP's configuration rewrite; short success does not settle this issue.
 - Game crash and bridge-loss recovery; unavailable/full backup location; startup
@@ -57,8 +82,8 @@ required. The Windows user must remain signed in.
 
 ## Package build versus deployed build
 
-The deployed native Windows build used the same launcher implementation included
-in this source tree. The review ZIP contains a fresh portable DLL build compiled
+The deployed native Windows build predates the review.3 prerequisite fix described
+above. The review ZIP contains a fresh portable DLL build compiled
 on macOS, with debug symbols omitted, for use with `dotnet.exe` on Windows. These
 exact review binaries have not been installed into the live host. Packaging does
 not change the running host, its schedule, world, configuration or binaries.

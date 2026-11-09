@@ -55,6 +55,13 @@ session, signed in, and has completed updates. Check first-run dialogs and licen
 availability. The agent never submits credentials and does not silently select
 another Steam profile. Confirm `GameExecutable` names the real `ScrapMechanic.exe`.
 
+From **0.1.0-review.3**, missing Steam, missing executables and other launch
+preparation errors do not create a pending-launch lock. Correct the reported
+prerequisite and click Start again. Earlier versions recorded the lock before
+these checks, so starting AMP before Steam could leave `LaunchUnresolved` even
+though no launch request was sent. An existing lock from an older build still
+requires the inspection and acknowledgement below; upgrading does not clear it.
+
 Steam mode uses `-applaunch 387990`; executable mode starts the configured binary
 with Steam already present. URI mode sends `steam://run/387990//<encoded arguments>/`
 to the configured Steam executable. URI arguments and confirmation behavior must
@@ -67,6 +74,11 @@ dialog/download launch. Once no game exists, explicitly clear it:
 ```powershell
 .\ScrapMechanic.Host.exe acknowledge-launch --confirm --config .\client.json
 ```
+
+Run this in PowerShell on the Windows host, from the instance's `scrapmechanic`
+directory. When the bridge exits after a failed start, AMP's application console
+cannot deliver this command. The command requires no game process to exist and
+does not edit save files. Then retry AMP Start.
 
 A late game process can instead be observed with Start, or closed with Stop.
 Never delete `Data\state.json` merely to bypass a launch/backup interlock. Malformed
@@ -146,6 +158,10 @@ Cloud conflicts deliberately. No process-level signal proves a restore succeeded
 Keep the Windows account logged in. Logout, sleep, display loss or driver problems
 can stop hosting regardless of AMP status. After reboot, log in, start/authenticate
 Steam and verify the agent task before AMP Start. Automatic login is not configured.
+The launch lock is not automatically cleared merely because Windows or the agent
+restarted. A real dispatched launch with an uncertain result still needs inspection;
+stop/backup failure locks are also preserved. Prerequisite checks cannot prove
+that Steam is signed in or free of dialogs.
 
 The named pipe is available across sessions to the explicitly authorized AMP
 account. The agent must be in an interactive nonzero session. An HDMI dummy plug

@@ -23,6 +23,15 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/Build.ps1 -SelfContained
+      - name: Verify portable helper with Windows apphost
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet publish src/ScrapMechanic.Host/ScrapMechanic.Host.csproj -c Release --self-contained false -p:UseAppHost=false -o artifacts/portable-check
+          if ($LASTEXITCODE -ne 0) { throw 'Portable publish failed.' }
+          Copy-Item artifacts/publish/ScrapMechanic.Host.exe artifacts/portable-check/
+          & ./artifacts/portable-check/ScrapMechanic.Host.exe --help
+          if ($LASTEXITCODE -ne 0) { throw 'Native apphost could not load the portable helper.' }
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:

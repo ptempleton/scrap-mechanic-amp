@@ -38,7 +38,7 @@ public sealed class WindowsGamePlatform : IGamePlatform
         return result;
     }
 
-    public void Launch(GameSettings settings)
+    public Action PrepareLaunch(GameSettings settings)
     {
         settings.Validate();
         if (!string.Equals(Path.GetFileName(settings.GameExecutable), "ScrapMechanic.exe", StringComparison.OrdinalIgnoreCase))
@@ -50,8 +50,11 @@ public sealed class WindowsGamePlatform : IGamePlatform
             throw new HostOperationException("Start Steam and sign in in the agent's desktop session before launching the host.");
         if (FindGames().Count != 0) throw new HostOperationException("Scrap Mechanic is already running.");
         var start = BuildStartInfo(settings);
-        using var launched = Process.Start(start) ?? throw new InvalidOperationException("Process.Start returned no process.");
-        // Steam's short-lived launcher PID is deliberately not used as the game identity.
+        return () =>
+        {
+            using var launched = Process.Start(start) ?? throw new InvalidOperationException("Process.Start returned no process.");
+            // Steam's short-lived launcher PID is deliberately not used as the game identity.
+        };
     }
 
     public static ProcessStartInfo BuildStartInfo(GameSettings settings)

@@ -279,3 +279,30 @@ For updates, stop the game and agent first, preserve configuration/state/backups
 then replace both binary directories with the same build. The installer refuses
 to overwrite an existing setup. Never end the agent task while its game is
 running: Windows task/process-tree behavior must not be used as a shutdown method.
+
+For a framework-dependent installation made from this project (including the
+native EXE installation with .NET 10 already installed), update from the portable
+review ZIP as follows:
+
+1. Verify the release ZIP checksum and extract it into a new directory.
+2. Use AMP Stop and confirm successful game exit and its stopped backup. If a
+   launch/stop failure is reported, resolve it before updating.
+3. Stop the AMP **instance** in ADS so its schedule cannot start the bridge during
+   the update. Keep the Windows game account signed in.
+4. Confirm no `ScrapMechanic` process exists, then stop the `ScrapMechanicHost-Agent`
+   scheduled task. Wait for the task to leave Running before copying files.
+5. Make a separate, timestamped copy of both existing binary directories:
+   `C:\ScrapMechanicHost\bin` and `<instance>\scrapmechanic`. Preserve these for
+   rollback. Copy the four files from the release's `artifacts\publish` into
+   **both** directories, replacing only files of the same names. Retain the
+   existing native `ScrapMechanic.Host.exe`, if present. Leave all JSON host/client
+   configuration, `Data`, saves and backups in place; the release's `.deps.json`
+   and `.runtimeconfig.json` are binary runtime metadata and must be updated.
+6. Start the agent task, run CLI `status`, start the AMP instance and click Start.
+   Confirm the intended world and multiplayer connection. If the new helper fails,
+   keep the game and task stopped and restore the old binary files in both
+   directories before restarting.
+
+Self-contained installations should use a matching complete self-contained build
+instead of this four-file procedure. Updating binaries does not clear existing
+launch, stop or backup locks. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for recovery.

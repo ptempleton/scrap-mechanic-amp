@@ -27,6 +27,8 @@ flowchart LR
   startup/stop timeouts, save directory, backup destination and retention in AMP.
 - Default Steam launch: `steam.exe -applaunch 387990 -dedicated_server -last_save`.
   Direct executable and Steam URI modes are available for testing.
+- Checks Steam and executable prerequisites before recording a pending launch.
+  If Steam is closed after login, open it and retry AMP Start without clearing a lock.
 - Graceful shutdown through the main window's `WM_CLOSE`, followed by process-exit
   observation. A timeout never triggers automatic game termination.
 - Restart waits for exit and, by default, a verified stopped backup before relaunch.

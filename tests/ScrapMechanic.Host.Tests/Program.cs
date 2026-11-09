@@ -100,7 +100,28 @@ Test("live backup refused", async () =>
     Check(!(await f.Controller.ExecuteAsync("backup")).Ok);
     Check(!f.Platform.Calls.Contains("backup"));
 });
-Test("launch exception is logged and unresolved launch survives restart", async () =>
+Test("missing Steam leaves no persisted launch lock and retry succeeds after agent restart", async () =>
+{
+    using var f = new Fixture();
+    var path = Path.Combine(f.Root, "state.json");
+    HostController Controller(FileLaunchGuard guard) => new(f.Platform, f.Backups, f.Log,
+        guard, () => f.Settings, () => false, new FastClock());
+    var guard = new FileLaunchGuard(path);
+    f.Platform.SteamAvailable = false;
+    var result = await Controller(guard).ExecuteAsync("start");
+    Check(!result.Ok && result.Status?.State == "Faulted");
+    Check(result.Message.Contains("Start Steam") && f.Log.Names.Contains("operation_failed"));
+    Check(!guard.Pending && guard.ActiveSettings is null && f.Platform.Calls.Count == 0);
+    Check(!f.Log.Names.Contains("start_requested"));
+    // Recreate the controller and file guard as a new agent would after login.
+    var reloaded = new FileLaunchGuard(path);
+    Check(!reloaded.Pending && reloaded.StartBlockedReason is null);
+    f.Platform.SteamAvailable = true;
+    result = await Controller(reloaded).ExecuteAsync("start");
+    Check(result.Ok && result.Status is { State: "Running", ProcessId: not null });
+    Check(f.Platform.Calls.SequenceEqual(new[] { "launch" }));
+});
+Test("launch dispatch exception is logged and unresolved launch survives restart", async () =>
 {
     using var f = new Fixture();
     f.Platform.LaunchThrows = true;

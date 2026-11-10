@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using ScrapMechanic.Host.Core;
 
 namespace ScrapMechanic.Host.Tests;
@@ -73,19 +72,33 @@ internal sealed class MemoryGuard : ILaunchGuard
 
 internal sealed class FastClock : TimeProvider
 {
-    private readonly Stopwatch watch = Stopwatch.StartNew();
     private readonly DateTimeOffset origin = DateTimeOffset.UtcNow;
-    private TimeSpan offset;
-    public void Advance(TimeSpan duration) => offset += duration;
-    public override DateTimeOffset GetUtcNow() => origin + offset + TimeSpan.FromTicks(watch.Elapsed.Ticks * 100);
+    private long elapsedTicks;
+    // Logical time advances only on test-controlled delays. Filesystem scheduling/flush
+    // latency on a Windows CI runner must not consume a simulated startup deadline.
+    public void Advance(TimeSpan duration) => Interlocked.Add(ref elapsedTicks, duration.Ticks);
+    public override DateTimeOffset GetUtcNow() => origin + TimeSpan.FromTicks(Interlocked.Read(ref elapsedTicks));
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
-        new FastTimer(callback, state, dueTime, period);
+        new FastTimer(this, callback, state, dueTime, period);
     private sealed class FastTimer : ITimer
     {
         private readonly Timer timer;
-        public FastTimer(TimerCallback callback, object? state, TimeSpan due, TimeSpan period) => timer = new(callback, state, Scale(due), Scale(period));
-        private static TimeSpan Scale(TimeSpan span) => span == Timeout.InfiniteTimeSpan ? span : TimeSpan.FromMilliseconds(Math.Max(1, span.TotalMilliseconds / 100));
-        public bool Change(TimeSpan dueTime, TimeSpan period) => timer.Change(Scale(dueTime), Scale(period));
+        private long dueTicks;
+        public FastTimer(FastClock clock, TimerCallback callback, object? state, TimeSpan due, TimeSpan period)
+        {
+            timer = new(_ =>
+            {
+                clock.Advance(TimeSpan.FromTicks(Interlocked.Read(ref dueTicks)));
+                callback(state);
+            }, null, Timeout.Infinite, Timeout.Infinite);
+            Change(due, period);
+        }
+        public bool Change(TimeSpan dueTime, TimeSpan period)
+        {
+            if (period != Timeout.InfiniteTimeSpan) throw new NotSupportedException("Test clock supports one-shot Task.Delay timers only.");
+            Interlocked.Exchange(ref dueTicks, dueTime.Ticks);
+            return timer.Change(dueTime == Timeout.InfiniteTimeSpan ? Timeout.Infinite : 1, Timeout.Infinite);
+        }
         public void Dispose() => timer.Dispose();
         public ValueTask DisposeAsync() => timer.DisposeAsync();
     }

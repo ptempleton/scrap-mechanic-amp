@@ -386,6 +386,8 @@ Sync("structured logger tolerates a failed disk write", () =>
     log.Write("test_event", "Synthetic missing log directory");
 });
 
+CrashRecoveryTests.Register(Test);
+
 var failures = 0;
 foreach (var (name, run) in tests)
 {

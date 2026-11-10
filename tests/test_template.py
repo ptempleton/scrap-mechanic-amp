@@ -22,7 +22,7 @@ class TemplateTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_template(self):
-        self.assertEqual(validator.validate(self.root), (44, 12))
+        self.assertEqual(validator.validate(self.root), (44, 16))
 
     def test_invented_key_rejected(self):
         path = self.root / 'amp/scrapmechanic.kvp'

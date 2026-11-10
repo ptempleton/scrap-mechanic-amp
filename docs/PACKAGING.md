@@ -12,7 +12,7 @@ an additional check, not a general-purpose secret-detection guarantee.
 Install .NET 10 SDK, PowerShell 7, Python 3 and Git. Commit source changes first.
 
 ```powershell
-.\scripts\Package.ps1 -Version '0.1.0-review.3'
+.\scripts\Package.ps1 -Version '0.1.0-review.4'
 ```
 
 The script runs the automated suite, forces a fresh symbol-free Release build,
@@ -41,10 +41,10 @@ verification report and pass the full committed source revision:
 python scripts/package-release.py build `
   --publish-directory artifacts/review-publish `
   --verification-report artifacts/package-verification.md `
-  --version 0.1.0-review.3 `
+  --version 0.1.0-review.4 `
   --source-revision FULL_40_CHARACTER_COMMIT
-python scripts/package-release.py verify artifacts/releases/ScrapMechanic-AMP-0.1.0-review.3.zip
-Get-FileHash artifacts/releases/ScrapMechanic-AMP-0.1.0-review.3.zip -Algorithm SHA256
+python scripts/package-release.py verify artifacts/releases/ScrapMechanic-AMP-0.1.0-review.4.zip
+Get-FileHash artifacts/releases/ScrapMechanic-AMP-0.1.0-review.4.zip -Algorithm SHA256
 ```
 
 The Python builder packages and verifies; it does not compile, run the test suite,

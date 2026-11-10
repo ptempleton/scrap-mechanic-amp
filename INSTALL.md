@@ -174,6 +174,7 @@ Graceful exit timeout: 120 seconds
 Stopped settle delay: 3 seconds
 Backup retention: 10
 Back up after stop: enabled
+Restart after a game crash: disabled (until disposable-world acceptance)
 ```
 
 If needed, use AMP's import-settings support to import the seeded
@@ -274,6 +275,9 @@ Removal unregisters only the recorded agent task. It preserves saves, backups,
 logs, configuration and binaries. Remove the stopped AMP instance and the local
 template directory through your normal AMP/filesystem procedure after retaining
 any data you need. Do not delete Steam or AppData game folders as part of removal.
+
+For review.4 crash recovery, also follow the settings migration and rollback notes
+in [docs/CRASH-RECOVERY.md](docs/CRASH-RECOVERY.md).
 
 For updates, stop the game and agent first, preserve configuration/state/backups,
 then replace both binary directories with the same build. The installer refuses

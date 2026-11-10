@@ -1,11 +1,13 @@
 # Scrap Mechanic AMP review package
 
-Version: **0.1.0-review.3**. Windows-only community integration, MIT license.
+Version: **0.1.0-review.4**. Windows-only community integration, MIT license.
 This is a working prototype for CubeCoders review, not an official AMP release.
 
-This update fixes false pending-launch locks when Steam or executable prerequisites
-are missing. Existing installations must update both the agent and AMP bridge
-binaries; see **Removal and updates** in [INSTALL.md](INSTALL.md).
+This update adds opt-in crash recovery with separate crash archives, a delay and
+a persistent retry limit. It retains the Steam prerequisite fix from review.3.
+Existing installations must update both helper copies and the settings manifest.
+See [crash recovery and upgrading](docs/CRASH-RECOVERY.md). Leave recovery disabled
+until the disposable-world acceptance test has passed.
 
 Get the complete ZIP and checksum from the
 [GitHub releases page](https://github.com/ptempleton/scrap-mechanic-amp/releases).

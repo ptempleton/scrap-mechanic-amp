@@ -10,8 +10,11 @@ public static class Bridge
         void Print(Reply reply) => output.WriteLine(JsonSerializer.Serialize(reply, ConfigJson.Options));
         var started = await send("start");
         Print(started);
-        if (!started.Ok || started.Status?.ProcessId is null) return 2;
-        output.WriteLine("SM_PROCESS_RUNNING multiplayer_readiness=unverified");
+        static bool Waiting(HostStatus? status) => status?.State is "RecoveryWaiting" or "Recovering";
+        if (!started.Ok || (started.Status?.ProcessId is null && !Waiting(started.Status))) return 2;
+        output.WriteLine(Waiting(started.Status) ? "SM_CRASH_RECOVERY_WAITING multiplayer_readiness=unverified" :
+            "SM_PROCESS_RUNNING multiplayer_readiness=unverified");
+        var lastStatus = started.Status;
         await output.FlushAsync();
         var interval = pollInterval ?? TimeSpan.FromSeconds(2);
         var line = input.ReadLineAsync();
@@ -45,6 +48,16 @@ public static class Bridge
                     Print(status);
                     return 4; // Control plane unhealthy. Game is left untouched.
                 }
+                if (status.Status != lastStatus)
+                {
+                    Print(status);
+                    if (Waiting(status.Status)) output.WriteLine("SM_CRASH_RECOVERY_WAITING multiplayer_readiness=unverified");
+                    else if (status.Status?.ProcessId is not null && status.Status.State == "Running")
+                        output.WriteLine("SM_PROCESS_RUNNING multiplayer_readiness=unverified");
+                    await output.FlushAsync();
+                    lastStatus = status.Status;
+                }
+                if (Waiting(status.Status)) continue; // Agent owns retry; console Stop remains available.
                 if (status.Status?.ProcessId is null)
                 {
                     Print(status);

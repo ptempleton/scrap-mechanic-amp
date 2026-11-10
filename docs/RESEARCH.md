@@ -75,7 +75,9 @@ Backups copy the entire selected directory, including sidecars and subdirectorie
 Only stopped backups are supported. AMP's own file backup is not relied on for
 external user-profile saves. It may separately archive completed backup ZIPs if
 the operator configures it to include their directory. Restart aborts on failed
-shutdown or failed requested backup. Automatic crash restart is disabled.
+shutdown or failed requested backup. Automatic crash restart is disabled by default. Optional bounded recovery is owned
+by the agent, with persisted attempt history and separate post-crash archives;
+AMP automatic retries remain disabled. See [CRASH-RECOVERY.md](CRASH-RECOVERY.md).
 
 This is a private Windows integration, not a claim of official AMP support or an
 upstream-ready template. The [upstream submission rules](https://github.com/CubeCoders/AMPTemplates#sharing-templates)

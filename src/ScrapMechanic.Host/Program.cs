@@ -57,7 +57,7 @@ public static class Program
                     () => ConfigJson.Read<AgentConfiguration>(configPath).AllowEmergencyTermination);
                 using var cancel = new CancellationTokenSource();
                 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); };
-                log.Write("agent_started", "Interactive agent online; game is not started automatically.", new { platform.SessionId });
+                log.Write("agent_started", "Interactive agent online; only a previously scheduled crash recovery can relaunch automatically.", new { platform.SessionId });
                 var monitor = Monitor(controller, cancel.Token);
                 try { await PipeTransport.ServeAsync(config, controller, log, cancel.Token); }
                 finally { cancel.Cancel(); await monitor; }

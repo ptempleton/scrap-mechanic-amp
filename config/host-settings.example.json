@@ -10,5 +10,9 @@
   "SaveDirectory": "",
   "BackupDirectory": "C:\\ScrapMechanicHost\\Backups",
   "BackupRetention": 10,
-  "BackupOnStop": true
+  "BackupOnStop": true,
+  "AutoRestartOnCrash": false,
+  "CrashRestartDelaySeconds": 30,
+  "CrashRestartMaxAttempts": 3,
+  "CrashRestartWindowSeconds": 900
 }

@@ -17,6 +17,10 @@ public sealed record GameSettings
     public string BackupDirectory { get; init; } = @"C:\ScrapMechanicHost\Backups";
     public int BackupRetention { get; init; } = 10;
     public bool BackupOnStop { get; init; } = true;
+    public bool AutoRestartOnCrash { get; init; }
+    public int CrashRestartDelaySeconds { get; init; } = 30;
+    public int CrashRestartMaxAttempts { get; init; } = 3;
+    public int CrashRestartWindowSeconds { get; init; } = 900;
 
     public void Validate()
     {
@@ -36,6 +40,11 @@ public sealed record GameSettings
         Range(ShutdownTimeoutSeconds, 1, 600, nameof(ShutdownTimeoutSeconds));
         Range(StoppedSettleSeconds, 0, 60, nameof(StoppedSettleSeconds));
         Range(BackupRetention, 1, 10000, nameof(BackupRetention));
+        Range(CrashRestartDelaySeconds, 5, 600, nameof(CrashRestartDelaySeconds));
+        Range(CrashRestartMaxAttempts, 1, 10, nameof(CrashRestartMaxAttempts));
+        Range(CrashRestartWindowSeconds, 60, 86400, nameof(CrashRestartWindowSeconds));
+        if (CrashRestartWindowSeconds < CrashRestartDelaySeconds)
+            throw new InvalidDataException("Crash restart window must be at least the restart delay.");
     }
 
     private static void Range(int value, int min, int max, string name)

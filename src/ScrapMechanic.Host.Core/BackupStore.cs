@@ -26,7 +26,7 @@ public sealed class BackupStore(string userDataRoot, IEventSink log) : IBackupSt
         return Path.GetFullPath(candidates[0]);
     }
 
-    public string Create(GameSettings settings, Action assertStopped)
+    public string Create(GameSettings settings, Action assertStopped, bool postCrash = false)
     {
         settings.Validate();
         assertStopped();
@@ -36,6 +36,8 @@ public sealed class BackupStore(string userDataRoot, IEventSink log) : IBackupSt
         EnsureNoLinks(destination);
         if (Contains(source, destination) || Contains(destination, source))
             throw new InvalidDataException("Save and backup directories must not contain one another.");
+        // Crash archives may contain inconsistent saves. Their retention must never prune normal backups.
+        if (postCrash) destination = Path.Combine(destination, "crashes");
         var inventory = Inventory(source);
         if (inventory.Count == 0) throw new InvalidDataException("Refusing an empty save backup. Confirm the save directory.");
         var sourceId = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(source.ToUpperInvariant())))[..16].ToLowerInvariant();

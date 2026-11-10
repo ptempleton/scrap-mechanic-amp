@@ -125,5 +125,48 @@
       "False": "false",
       "True": "true"
     }
+  },
+  {
+    "DisplayName": "Restart after a game crash",
+    "Category": "Scrap Mechanic",
+    "Description": "Opt in after disposable-world testing. The agent archives the stopped world and owns bounded retries; AMP Stop cancels the wait.",
+    "FieldName": "AutoRestartOnCrash",
+    "InputType": "checkbox",
+    "ParamFieldName": "AutoRestartOnCrash",
+    "DefaultValue": "false",
+    "EnumValues": {
+      "False": "false",
+      "True": "true"
+    }
+  },
+  {
+    "DisplayName": "Crash restart delay",
+    "Category": "Scrap Mechanic",
+    "Description": "Wait 5..600 seconds before a crash archive and relaunch.",
+    "FieldName": "CrashRestartDelaySeconds",
+    "InputType": "number",
+    "ParamFieldName": "CrashRestartDelaySeconds",
+    "DefaultValue": "30",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Maximum crash restart attempts",
+    "Category": "Scrap Mechanic",
+    "Description": "1..10 attempts within the rolling window, persisted across agent restarts. Exhaustion requires operator recovery.",
+    "FieldName": "CrashRestartMaxAttempts",
+    "InputType": "number",
+    "ParamFieldName": "CrashRestartMaxAttempts",
+    "DefaultValue": "3",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Crash restart rolling window",
+    "Category": "Scrap Mechanic",
+    "Description": "60..86400 seconds; at least the restart delay. Defaults to three attempts in fifteen minutes.",
+    "FieldName": "CrashRestartWindowSeconds",
+    "InputType": "number",
+    "ParamFieldName": "CrashRestartWindowSeconds",
+    "DefaultValue": "900",
+    "EnumValues": {}
   }
 ]

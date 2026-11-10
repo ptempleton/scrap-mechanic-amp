@@ -37,8 +37,8 @@ AMP Windows identity; network logons are denied, and clients verify the pipe own
 No TCP management service or stored Windows/Steam password is introduced.
 
 The agent matches executable path, desktop session, PID and creation time. Steam's
-launcher PID is not treated as the game PID. No automatic force-kill or crash
-restart is enabled. A local policy and explicit confirmed command are both
+launcher PID is not treated as the game PID. Automatic force-kill is never used. Bounded crash restart is opt-in and disabled
+by default; the agent owns retries and separates crash archives from normal backups. A local policy and explicit confirmed command are both
 required for emergency termination. Administrators remain trusted.
 
 If the bridge ends, the independent agent continues owning the game. Persistent
@@ -55,7 +55,7 @@ Guidance checked 2026-11-02: [official README](https://github.com/CubeCoders/AMP
 | Download without application authentication, except SteamCMD | Requires an existing licensed, signed-in Steam client; no download automation. Maintainer decision needed. |
 | Update operation | Empty update manifest; Steam owns installation and updates. No automatic game or agent updater. |
 | Windows/Linux validation, Proton where feasible | Windows desktop session only. Linux/Proton is not implemented or tested. |
-| Launch an executable, use settings manifests | Met: native EXE or `dotnet.exe` bridge; 12 mapped settings. PowerShell scripts are operator installation tools. |
+| Launch an executable, use settings manifests | Met: native EXE or `dotnet.exe` bridge; 16 mapped settings (the original 12 were live validated). PowerShell scripts are operator installation tools. |
 | Lowercase template files at repository top level | Five lowercase files in `amp/`; copy only those after agreeing on integration scope. Local `manifest.json` is deployment metadata. |
 | Ready and stopped states | Running marker indicates process observation. Multiplayer readiness is not queried; stopped requires game exit and any requested backup. |
 | Tested contribution | Core paths tested on one Windows installation; remaining acceptance cases are explicitly open. |

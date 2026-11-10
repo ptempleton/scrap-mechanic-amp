@@ -24,6 +24,7 @@ public interface ILaunchGuard
     bool Pending { get; }
     string? StartBlockedReason { get; }
     GameSettings? ActiveSettings { get; set; }
+    CrashRecoveryState Recovery { get; set; }
     void MarkPending();
     void Clear();
     void BlockStart(string reason);
@@ -32,7 +33,15 @@ public interface ILaunchGuard
 
 public interface IBackupStore
 {
-    string Create(GameSettings settings, Action assertStopped);
+    string Create(GameSettings settings, Action assertStopped, bool postCrash = false);
+}
+
+// Kept on disk so restarting the agent cannot reset the retry budget or lose a cancellation.
+public sealed record CrashRecoveryState
+{
+    public DateTimeOffset[] Attempts { get; init; } = [];
+    public DateTimeOffset? DueUtc { get; init; }
+    public bool NeedsArchive { get; init; }
 }
 
 public sealed record HostStatus(string State, int? ProcessId, int SessionId, bool MultiplayerReady = false,

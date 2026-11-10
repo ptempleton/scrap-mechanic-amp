@@ -23,7 +23,7 @@ installer changes `App.ExecutableWin` to the installed `dotnet.exe` and prepends
 AMP instance stopped, then restart the instance. Confirm .NET 10 x64 is installed.
 
 `host-settings.json` must exist before AMP's AutoMap can update it. The installer
-seeds it. All twelve fields are mapped to this file, not to game save files.
+seeds it. All sixteen fields are mapped to this file, not to game save files.
 
 ## Pipe connection timeout or access denied
 
@@ -169,6 +169,10 @@ does not bridge session 0 and does not remove the login requirement.
 
 AMP Running and the process PID are observations, not a multiplayer readiness
 check. CPU/memory charts belong to the bridge; use Task Manager for the game/GPU.
-Unexpected game exit emits `unexpected_exit` and ends the bridge with nonzero
-status. Disable any external AMP automation that would override the template's
-zero automatic-retry setting. Investigate before an explicit restart.
+With crash recovery disabled (the default), unexpected exit emits `unexpected_exit`
+and ends the bridge with nonzero status. When enabled, the agent handles the
+countdown, separate crash archive and bounded relaunch; the bridge stays connected.
+AMP may still display Running during recovery because the bridge remains alive.
+Consult `status` and the console for `RecoveryWaiting` and the game PID.
+Keep AMP automatic retries disabled to prevent competing restart policies.
+See [crash recovery](docs/CRASH-RECOVERY.md) for limits, cancellation and failures.

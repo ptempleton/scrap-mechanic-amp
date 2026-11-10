@@ -36,7 +36,10 @@ flowchart LR
 - Unique process matching by executable, session, PID and creation time; duplicate
   processes and inaccessible candidates fail closed. A unique matching existing
   process can be attached after reconnecting the agent.
-- JSON logs, unexpected-exit reporting, and no automatic crash restart.
+- JSON logs and optional bounded crash recovery: a separate stopped crash archive,
+  a 30-second wait and at most three relaunch attempts in fifteen minutes.
+  Disabled by default; AMP Stop cancels a pending recovery. See
+  [crash recovery](docs/CRASH-RECOVERY.md) before enabling.
 - Timestamp/GUID backups with SHA-256 manifests, validation, atomic publication,
   and retention scoped to the source directory. Existing backups are never overwritten.
 - Emergency termination requires a local configuration switch **and** an explicit

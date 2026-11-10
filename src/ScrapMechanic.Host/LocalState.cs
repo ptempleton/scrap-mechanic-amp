@@ -35,16 +35,25 @@ public sealed class JsonLog : IEventSink
 // Writes are atomic within a volume. Malformed state fails closed; it is not reset.
 public sealed class FileLaunchGuard : ILaunchGuard
 {
-    private sealed record State(bool Pending, string? StartBlockedReason, GameSettings? ActiveSettings);
+    private sealed record State(bool Pending, string? StartBlockedReason, GameSettings? ActiveSettings,
+        CrashRecoveryState? Recovery = null);
     private readonly string path;
     private State state;
     public FileLaunchGuard(string path)
     {
         this.path = path;
         state = File.Exists(path) ? ConfigJson.Read<State>(path) : new(false, null, null);
+        if (state.Recovery is { Attempts: null } ||
+            (state.Recovery?.DueUtc is not null && (state.ActiveSettings is null || !state.Recovery.NeedsArchive)))
+            throw new InvalidDataException("Invalid persisted crash recovery state; inspect state.json.");
     }
     public bool Pending => state.Pending;
     public string? StartBlockedReason => state.StartBlockedReason;
+    public CrashRecoveryState Recovery
+    {
+        get => state.Recovery ?? new();
+        set => Save(state with { Recovery = value });
+    }
     public GameSettings? ActiveSettings
     {
         get => state.ActiveSettings;

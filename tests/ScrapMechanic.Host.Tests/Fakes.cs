@@ -41,11 +41,13 @@ internal sealed class FakeBackup(FakePlatform platform) : IBackupStore
 {
     public bool Throws;
     public GameSettings? LastSettings;
-    public string Create(GameSettings settings, Action assertStopped)
+    public bool LastPostCrash;
+    public string Create(GameSettings settings, Action assertStopped, bool postCrash = false)
     {
         assertStopped();
         platform.Calls.Add("backup");
         LastSettings = settings;
+        LastPostCrash = postCrash;
         if (Throws) throw new IOException("Disk full");
         return "test-backup.zip";
     }
@@ -62,6 +64,7 @@ internal sealed class MemoryGuard : ILaunchGuard
     public bool Pending { get; private set; }
     public string? StartBlockedReason { get; private set; }
     public GameSettings? ActiveSettings { get; set; }
+    public CrashRecoveryState Recovery { get; set; } = new();
     public void MarkPending() => Pending = true;
     public void Clear() => Pending = false;
     public void BlockStart(string reason) => StartBlockedReason = reason;
@@ -72,7 +75,9 @@ internal sealed class FastClock : TimeProvider
 {
     private readonly Stopwatch watch = Stopwatch.StartNew();
     private readonly DateTimeOffset origin = DateTimeOffset.UtcNow;
-    public override DateTimeOffset GetUtcNow() => origin + TimeSpan.FromTicks(watch.Elapsed.Ticks * 100);
+    private TimeSpan offset;
+    public void Advance(TimeSpan duration) => offset += duration;
+    public override DateTimeOffset GetUtcNow() => origin + offset + TimeSpan.FromTicks(watch.Elapsed.Ticks * 100);
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
         new FastTimer(callback, state, dueTime, period);
     private sealed class FastTimer : ITimer
@@ -95,6 +100,7 @@ internal sealed class Fixture : IDisposable
     public FakeBackup Backups { get; }
     public GameSettings Settings { get; set; }
     public HostController Controller { get; }
+    public FastClock Clock { get; } = new();
     public Fixture(bool emergency = false)
     {
         Directory.CreateDirectory(Root);
@@ -114,6 +120,6 @@ internal sealed class Fixture : IDisposable
         Backups = new(Platform);
         Controller = NewController(emergency);
     }
-    public HostController NewController(bool emergency = false) => new(Platform, Backups, Log, Guard, () => Settings, () => emergency, new FastClock());
+    public HostController NewController(bool emergency = false) => new(Platform, Backups, Log, Guard, () => Settings, () => emergency, Clock);
     public void Dispose() => Directory.Delete(Root, true);
 }

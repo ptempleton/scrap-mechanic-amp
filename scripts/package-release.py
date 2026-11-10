@@ -13,7 +13,7 @@ FILES = (
     'TESTING.md', 'TROUBLESHOOTING.md', '.gitignore', 'global.json',
     'Directory.Build.props', 'ScrapMechanic.slnx', '.github/workflows/build.yml',
     'docs/RESEARCH.md', 'docs/amp-key-evidence.json', 'docs/MAINTAINER-REVIEW.md',
-    'docs/SUBMISSION-DRAFT.md', 'docs/VALIDATION.md', 'docs/PACKAGING.md',
+    'docs/CRASH-RECOVERY.md', 'docs/SUBMISSION-DRAFT.md', 'docs/VALIDATION.md', 'docs/PACKAGING.md',
     'amp/manifest.json', 'amp/scrapmechanic.kvp', 'amp/scrapmechanicconfig.json',
     'amp/scrapmechanicmetaconfig.json', 'amp/scrapmechanicports.json',
     'amp/scrapmechanicupdates.json', 'config/agent.example.json',
@@ -171,7 +171,7 @@ def main():
     build.add_argument('--publish-directory', type=Path, required=True)
     build.add_argument('--verification-report', type=Path, required=True)
     build.add_argument('--output-directory', type=Path, default=ROOT / 'artifacts/releases')
-    build.add_argument('--version', default='0.1.0-review.3')
+    build.add_argument('--version', default='0.1.0-review.4')
     build.add_argument('--source-revision', required=True)
     check = sub.add_parser('verify')
     check.add_argument('archive', type=Path)

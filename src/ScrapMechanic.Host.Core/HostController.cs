@@ -11,19 +11,25 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
     private GameSettings? activeSettings = launchGuard.ActiveSettings;
     private string? failure;
     private bool stopRequested;
+    private bool recoveryArmed;
+    private bool recovering;
 
     public async Task<Reply> ExecuteAsync(string command)
     {
         await gate.WaitAsync();
         try
         {
+            // Cancel before reconciliation so Stop also wins when it first discovers the exit.
+            if (command is "stop" or "restart") CancelRecovery();
             Reconcile();
             switch (command)
             {
                 case "status": return new(true, "Process observation only; multiplayer readiness is unverified.", Status());
                 case "start":
                     await Start();
-                    return new(true, "Game process observed; multiplayer readiness is unverified.", Status());
+                    return new(true, launchGuard.Recovery.DueUtc is null
+                        ? "Game process observed; multiplayer readiness is unverified."
+                        : "Crash recovery is scheduled; no additional launch requested.", Status());
                 case "stop":
                     var stoppedBackup = await Stop();
                     return new(true, "Game exited. A save flush is not proven by process exit.", Status(), stoppedBackup);
@@ -33,12 +39,15 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
                     return new(true, "Restart completed; multiplayer readiness is unverified.", Status(), restartBackup);
                 case "backup":
                     var settings = activeSettings ?? Settings();
-                    var backup = await Backup(settings);
+                    var backup = await Backup(settings, launchGuard.Recovery.NeedsArchive);
+                    launchGuard.Recovery = launchGuard.Recovery with { NeedsArchive = launchGuard.Recovery.DueUtc is not null };
                     launchGuard.UnblockStart();
+                    failure = null;
                     return new(true, "Stopped backup completed.", Status(), backup);
                 case "emergency-stop CONFIRM":
                     if (!allowEmergencyTermination()) throw new HostOperationException("Emergency termination is disabled in agent.json.");
                     if (managed is null) throw new HostOperationException("No verified game process to terminate.");
+                    CancelRecovery();
                     log.Write("emergency_termination", "Explicit emergency termination requested. Recent changes may be lost.", managed);
                     launchGuard.BlockStart("Emergency termination requested; inspect the world and run a stopped backup before starting.");
                     platform.EmergencyKill(managed);
@@ -60,6 +69,7 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
         }
         catch (Exception ex)
         {
+            if (launchGuard.Recovery.DueUtc is not null) FailRecovery(ex.Message);
             failure = ex.Message;
             log.Write("operation_failed", ex.Message, new { command, exception = ex.GetType().Name });
             return new(false, ex.Message, Status());
@@ -71,9 +81,15 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
     {
         // A stop/start/backup already observes its own critical interval.
         if (!await gate.WaitAsync(0)) return;
-        try { Reconcile(); }
+        try
+        {
+            Reconcile();
+            if (launchGuard.Recovery.DueUtc is { } due && time.GetUtcNow() >= due)
+                await Recover();
+        }
         catch (Exception ex)
         {
+            if (launchGuard.Recovery.DueUtc is not null) FailRecovery(ex.Message);
             if (failure != ex.Message) log.Write("monitor_error", ex.Message);
             failure = ex.Message;
         }
@@ -88,8 +104,12 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
     }
 
     private HostStatus Status() => new(managed is not null ? (stopRequested ? "StopFailed" : "Running") :
-        launchGuard.Pending ? "LaunchUnresolved" : failure is null && launchGuard.StartBlockedReason is null ? "Stopped" : "Faulted",
-        managed?.Id, platform.SessionId, false, failure ?? launchGuard.StartBlockedReason);
+        launchGuard.Pending ? "LaunchUnresolved" : recovering ? "Recovering" :
+        launchGuard.Recovery.DueUtc is not null ? "RecoveryWaiting" :
+        failure is null && launchGuard.StartBlockedReason is null ? "Stopped" : "Faulted",
+        managed?.Id, platform.SessionId, false, launchGuard.Recovery.DueUtc is { } due
+            ? $"Crash recovery scheduled for {due:O}; multiplayer is unavailable/unverified."
+            : failure ?? launchGuard.StartBlockedReason);
 
     private void Reconcile()
     {
@@ -97,10 +117,16 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
         {
             var expected = stopRequested;
             log.Write(expected ? "late_exit" : "unexpected_exit",
-                expected ? "Game exited after an earlier stop request." : "Game exited unexpectedly; no automatic restart.", managed);
+                expected ? "Game exited after an earlier stop request." : "Game exited unexpectedly; multiplayer is unavailable.", managed);
             managed = null;
             stopRequested = false;
             failure = expected ? "Late exit; requested backup was not run. Use backup before starting." : "Unexpected game exit; inspect the game and launcher logs.";
+            if (!expected && !launchGuard.Pending && activeSettings is { AutoRestartOnCrash: true })
+            {
+                launchGuard.Recovery = launchGuard.Recovery with { NeedsArchive = true };
+                if (recoveryArmed && launchGuard.StartBlockedReason is null) ScheduleRecovery(activeSettings);
+            }
+            recoveryArmed = false;
         }
         var candidates = platform.FindGames();
         if (candidates.Count == 0) return;
@@ -113,24 +139,30 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
             throw new HostOperationException("Process identity changed unexpectedly.");
         if (managed is null)
         {
+            if (launchGuard.Recovery.DueUtc is not null)
+                throw new HostOperationException("A game process appeared during the recovery wait. Inspect it before retrying; no second launch was sent.");
             managed = candidate;
             activeSettings = settings;
             launchGuard.ActiveSettings = settings;
+            recoveryArmed = !launchGuard.Pending && launchGuard.StartBlockedReason is null;
             log.Write("process_observed", "Attached to the unique matching process in this user session. Readiness is unverified.", candidate);
         }
     }
 
-    private async Task Start()
+    private async Task Start(GameSettings? recoverySettings = null)
     {
         if (launchGuard.StartBlockedReason is not null) throw new HostOperationException(launchGuard.StartBlockedReason);
+        if (launchGuard.Recovery.DueUtc is not null) return; // Bridge reconnect during countdown.
         if (managed is not null)
         {
             if (stopRequested) throw new HostOperationException("Previous stop failed; resolve it before restarting.");
             if (launchGuard.Pending) await ObserveStable(activeSettings!);
+            recoveryArmed = true;
             return; // Idempotent reconnect, never launches a second copy.
         }
         if (launchGuard.Pending) throw new HostOperationException("An earlier launch is unresolved. Inspect Steam before acknowledge-launch CONFIRM.");
-        var settings = Settings();
+        var settings = recoverySettings ?? Settings();
+        settings.Validate();
         AssertStoppedProcesses();
         // Missing Steam/files or other preparation errors have not sent a launch.
         // They must remain retryable without acknowledging an uncertain launch.
@@ -158,6 +190,7 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
                 {
                     launchGuard.Clear();
                     failure = null;
+                    recoveryArmed = true;
                     log.Write("started", "Game process remained present for the configured observation interval. Multiplayer is unverified.", managed);
                     return;
                 }
@@ -170,6 +203,7 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
 
     private async Task<string?> Stop()
     {
+        CancelRecovery();
         var settings = activeSettings ?? Settings();
         if (managed is not null)
         {
@@ -187,22 +221,90 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
         }
         AssertStopped();
         failure = null;
-        if (settings.BackupOnStop) launchGuard.BlockStart("Requested stopped backup has not completed. Retry stop or backup before starting.");
-        var result = settings.BackupOnStop ? await Backup(settings) : null;
+        var needsArchive = launchGuard.Recovery.NeedsArchive;
+        if (settings.BackupOnStop || needsArchive) launchGuard.BlockStart("Requested stopped backup has not completed. Retry stop or backup before starting.");
+        var result = settings.BackupOnStop || needsArchive ? await Backup(settings, needsArchive) : null;
+        launchGuard.Recovery = launchGuard.Recovery with { NeedsArchive = false };
         launchGuard.UnblockStart();
         activeSettings = null;
         launchGuard.ActiveSettings = null;
         return result;
     }
 
-    private async Task<string> Backup(GameSettings settings)
+    private async Task<string> Backup(GameSettings settings, bool postCrash = false)
     {
         AssertStopped();
         await Delay(settings.StoppedSettleSeconds * 1000);
         AssertStopped();
-        var result = backups.Create(settings, AssertStopped);
-        log.Write("backup_completed", "Verified stopped backup created.", new { path = result });
+        var result = backups.Create(settings, AssertStopped, postCrash);
+        log.Write(postCrash ? "crash_archive_completed" : "backup_completed",
+            postCrash ? "Post-crash archive verified; world consistency is unverified." : "Verified stopped backup created.", new { path = result });
         return result;
+    }
+
+    private DateTimeOffset[] RecentAttempts(GameSettings settings) => launchGuard.Recovery.Attempts
+        .Where(at => at > time.GetUtcNow().AddSeconds(-settings.CrashRestartWindowSeconds)).ToArray();
+
+    private void ScheduleRecovery(GameSettings settings)
+    {
+        if (RecentAttempts(settings).Length >= settings.CrashRestartMaxAttempts)
+        {
+            FailRecovery($"Crash recovery limit reached ({settings.CrashRestartMaxAttempts} attempts in {settings.CrashRestartWindowSeconds} seconds).");
+            return;
+        }
+        launchGuard.Recovery = launchGuard.Recovery with
+        {
+            DueUtc = time.GetUtcNow().AddSeconds(settings.CrashRestartDelaySeconds), NeedsArchive = true
+        };
+        log.Write("crash_recovery_scheduled", "Waiting before stopped archive and Steam relaunch; Stop cancels recovery.",
+            new { launchGuard.Recovery.DueUtc });
+    }
+
+    private void CancelRecovery()
+    {
+        recoveryArmed = false;
+        if (launchGuard.Recovery.DueUtc is null) return;
+        launchGuard.Recovery = launchGuard.Recovery with { DueUtc = null };
+        log.Write("crash_recovery_cancelled", "Operator cancelled the pending crash recovery.");
+    }
+
+    private void FailRecovery(string reason)
+    {
+        recoveryArmed = false;
+        failure = "Automatic crash recovery stopped: " + reason + " Inspect logs and Steam, then run a stopped backup before Start.";
+        // Block first: a crash between these writes cannot leave an unguarded scheduled retry.
+        launchGuard.BlockStart(failure);
+        launchGuard.Recovery = launchGuard.Recovery with { DueUtc = null };
+        log.Write("crash_recovery_failed", failure);
+    }
+
+    private async Task Recover()
+    {
+        recovering = true;
+        try
+        {
+            if (launchGuard.StartBlockedReason is not null) throw new HostOperationException(launchGuard.StartBlockedReason);
+            AssertStopped();
+            var settings = activeSettings ?? throw new HostOperationException("Recovery settings are missing.");
+            settings.Validate();
+            var attempts = RecentAttempts(settings);
+            if (attempts.Length >= settings.CrashRestartMaxAttempts)
+                throw new HostOperationException("Crash recovery retry limit reached.");
+            // An interrupted archive/relaunch requires inspection after agent restart, never a blind retry.
+            launchGuard.BlockStart("Crash recovery was interrupted. Inspect Steam and run a stopped backup before starting.");
+            await Backup(settings, postCrash: true); // Mandatory even if BackupOnStop is disabled.
+            launchGuard.Recovery = new()
+            {
+                Attempts = [.. attempts, time.GetUtcNow()], NeedsArchive = true
+            };
+            launchGuard.UnblockStart();
+            log.Write("crash_recovery_attempt", "Requesting a bounded recovery launch.", new { attempt = attempts.Length + 1 });
+            await Start(settings);
+            launchGuard.Recovery = launchGuard.Recovery with { NeedsArchive = false };
+            log.Write("crash_recovery_succeeded", "Game process observed again; multiplayer readiness and world consistency remain unverified.", managed);
+        }
+        catch (Exception ex) { FailRecovery(ex.Message); }
+        finally { recovering = false; }
     }
 
     private async Task<bool> WaitForExit(GameProcess target, TimeSpan timeout)

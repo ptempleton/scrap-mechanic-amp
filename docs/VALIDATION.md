@@ -1,6 +1,6 @@
 # Shareable validation record
 
-Evidence dates: 2026-11-02 through 2026-11-09. This summary excludes private account names, addresses,
+Evidence dates: 2026-11-02 through 2026-11-10. This summary excludes private account names, addresses,
 Steam IDs, authentication/session material, raw logs and world data. Detailed
 operator notes remain outside the review archive.
 
@@ -67,8 +67,8 @@ Stopped, and configuration/persistent-state file hashes were unchanged. Rollback
 copies of the replaced binaries were retained.
 
 After restarting the AMP instance, AMP Start succeeded and the same game process
-remained Running for over a minute. Multiplayer/world checks after this update
-await operator confirmation. The missing-Steam case has automated regression
+remained Running for over a minute. The operator subsequently reported that everything looked correct.
+That general confirmation was not a new controlled persistence trial. The missing-Steam case has automated regression
 coverage; a deliberate live missing-Steam or power-interruption trial was not run.
 
 The operator reported 0% GPU utilization for the game process. This is an
@@ -92,13 +92,29 @@ required. The Windows user must remain signed in.
 - Settings-edit regeneration and unchanged active stop/backup settings during a run.
 - Optional Steam URI/direct-executable modes; Linux/Proton support is absent.
 
+## Crash recovery development, 2026-11-10
+
+Review.4 adds opt-in agent-owned crash recovery. On macOS, 63/63 portable C#
+tests and 10/10 Python tests passed, with a clean build (zero warnings/errors).
+The template validator passed 44 evidenced AMP keys and 16 mapped settings.
+New tests exercise persisted retry limits, window expiry and clock rollback,
+concurrent polls, cancellation, crash archive retention isolation, interrupted
+recovery, Steam/backup/conflict failures, and bridge continuity. Windows-only
+checks were explicitly skipped on macOS. The release notes record CI results.
+
+This feature has not yet been tested against a real crashing game or enabled on
+the production world. The new four AMP settings require deployment/UI validation.
+See [CRASH-RECOVERY.md](CRASH-RECOVERY.md) for the disposable-world test.
+
 ## Package build versus deployed build
 
-The review.3 ZIP contains portable DLLs compiled on macOS with debug symbols
+The installed review.3 ZIP contains portable DLLs compiled on macOS with debug symbols
 omitted. Those exact four release files are now deployed in both Windows binary
 directories, using the existing native apphosts and installed .NET 10 runtime.
 The separate update operation and its live verification are recorded above;
 running the package builder itself does not install or change the game host.
+The review.4 package is a separate candidate; it has not been deployed by this
+development run.
 
 See `PACKAGE-VERIFICATION.md` in the generated archive for the packaging run's
 executed checks. See [../TESTING.md](../TESTING.md) for the acceptance procedure.

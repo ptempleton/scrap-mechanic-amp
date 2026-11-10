@@ -85,13 +85,17 @@ the four settings to an existing AMP instance's interface.
    process running, as described in [INSTALL.md](../INSTALL.md).
 2. Preserve timestamped copies of both binary directories, `Data/state.json`,
    `<instance>/scrapmechanic/host-settings.json`, the instance's
-   `GenericModule.kvp` and its referenced `scrapmechanicconfig.json`. Also preserve
+   `GenericModule.kvp` and its deployed `configmanifest.json`. Also preserve
    the local ADS template directory. Do not replace your paths/SIDs with examples.
 3. Replace the four portable helper files in **both** binary directories. Retain
    existing native apphosts for a framework-dependent installation; self-contained
    installations require a complete matching self-contained build.
-4. Replace the instance's settings manifest named by `Meta.ConfigManifest` with
-   the package's `amp/scrapmechanicconfig.json`. Update that file in ADS's
+4. Replace `<instance>/configmanifest.json` with the package's
+   `amp/scrapmechanicconfig.json`. `Meta.ConfigManifest` names the source file in
+   ADS's store; the deployed instance uses `configmanifest.json`, as described
+   in the [official guide](https://github.com/CubeCoders/AMP/wiki/Configuring-the-%27Generic%27-AMP-module#configuration-manifest).
+   Confirm its fields match the existing host settings before replacement.
+   Update `scrapmechanicconfig.json` in ADS's
    `Plugins/ADSModule/DeploymentTemplates/LOCAL-ScrapMechanic-main` too, so future
    instances have the same fields. Preserve the instance's `GenericModule.kvp`;
    do not replace it with template defaults or reset its path/account settings.

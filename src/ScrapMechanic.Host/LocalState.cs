@@ -36,18 +36,24 @@ public sealed class JsonLog : IEventSink
 public sealed class FileLaunchGuard : ILaunchGuard
 {
     private sealed record State(bool Pending, string? StartBlockedReason, GameSettings? ActiveSettings,
-        CrashRecoveryState? Recovery = null);
+        CrashRecoveryState? Recovery = null, DateTimeOffset? PendingSinceUtc = null);
     private readonly string path;
+    private readonly DateTimeOffset? legacyPendingSince;
     private State state;
     public FileLaunchGuard(string path)
     {
         this.path = path;
         state = File.Exists(path) ? ConfigJson.Read<State>(path) : new(false, null, null);
+        // Older state files have no dispatch time. The file was last written no earlier than the
+        // pending mark, so its write time is a safe (late) stand-in.
+        if (state.Pending && state.PendingSinceUtc is null)
+            legacyPendingSince = new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero);
         if (state.Recovery is { Attempts: null } ||
             (state.Recovery?.DueUtc is not null && (state.ActiveSettings is null || !state.Recovery.NeedsArchive)))
             throw new InvalidDataException("Invalid persisted crash recovery state; inspect state.json.");
     }
     public bool Pending => state.Pending;
+    public DateTimeOffset? PendingSinceUtc => state.Pending ? state.PendingSinceUtc ?? legacyPendingSince : null;
     public string? StartBlockedReason => state.StartBlockedReason;
     public CrashRecoveryState Recovery
     {
@@ -59,8 +65,8 @@ public sealed class FileLaunchGuard : ILaunchGuard
         get => state.ActiveSettings;
         set => Save(state with { ActiveSettings = value });
     }
-    public void MarkPending() => Save(state with { Pending = true });
-    public void Clear() => Save(state with { Pending = false });
+    public void MarkPending(DateTimeOffset sinceUtc) => Save(state with { Pending = true, PendingSinceUtc = sinceUtc });
+    public void Clear() => Save(state with { Pending = false, PendingSinceUtc = null });
     public void BlockStart(string reason) => Save(state with { StartBlockedReason = reason });
     public void UnblockStart() => Save(state with { StartBlockedReason = null });
     private void Save(State next)

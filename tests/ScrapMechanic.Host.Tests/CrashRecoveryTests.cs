@@ -156,13 +156,14 @@ internal static class CrashRecoveryTests
                 await Recover(f);
                 var launches = f.Platform.Calls.Count(c => c == "launch");
                 Check(launches == (fault is "dispatch" or "timeout" ? 2 : 1));
-                Check(f.Guard.StartBlockedReason is not null && f.Guard.Recovery.DueUtc is null);
+                // A recovery launch Steam ignores is retried once stale (LaunchRecoveryTests), not blocked.
+                Check((f.Guard.StartBlockedReason is not null) == (fault != "timeout") && f.Guard.Recovery.DueUtc is null);
                 Check(f.Guard.Pending == (fault is "dispatch" or "timeout"));
                 Check(!(await f.NewController().ExecuteAsync("start")).Ok);
                 await Recover(f, f.NewController());
                 Check(f.Platform.Calls.Count(c => c == "launch") == launches && !f.Platform.Calls.Contains("kill"));
             });
-        test("initial unresolved launch never enters crash recovery", async () =>
+        test("initial unresolved launch does not enter crash recovery before it is stale", async () =>
         {
             using var f = Enabled();
             f.Platform.LaunchAppears = false;

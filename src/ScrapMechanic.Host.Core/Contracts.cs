@@ -12,6 +12,9 @@ public interface IGamePlatform
     bool IsAlive(GameProcess process);
     bool RequestClose(GameProcess process);
     void EmergencyKill(GameProcess process);
+    // Closes BugSplat crash reporters (BsSndRpt.exe/BsSndRpt64.exe) left by an earlier game
+    // crash, only in this session and only from the game install directory. Returns the count.
+    int CloseCrashReporters(GameSettings settings);
 }
 
 public interface IEventSink
@@ -22,10 +25,12 @@ public interface IEventSink
 public interface ILaunchGuard
 {
     bool Pending { get; }
+    // When the unresolved launch was dispatched; null when nothing is pending.
+    DateTimeOffset? PendingSinceUtc { get; }
     string? StartBlockedReason { get; }
     GameSettings? ActiveSettings { get; set; }
     CrashRecoveryState Recovery { get; set; }
-    void MarkPending();
+    void MarkPending(DateTimeOffset sinceUtc);
     void Clear();
     void BlockStart(string reason);
     void UnblockStart();
@@ -42,10 +47,13 @@ public sealed record CrashRecoveryState
     public DateTimeOffset[] Attempts { get; init; } = [];
     public DateTimeOffset? DueUtc { get; init; }
     public bool NeedsArchive { get; init; }
+    // Consecutive launches that never reached the observation interval; reset by a successful start.
+    public int LaunchTimeouts { get; init; }
 }
 
 public sealed record HostStatus(string State, int? ProcessId, int SessionId, bool MultiplayerReady = false,
     string? Detail = null);
 public sealed record Reply(bool Ok, string Message, HostStatus? Status = null, string? Backup = null);
 
-public sealed class HostOperationException(string message) : Exception(message);
+public class HostOperationException(string message) : Exception(message);
+public sealed class LaunchTimeoutException(string message) : HostOperationException(message);

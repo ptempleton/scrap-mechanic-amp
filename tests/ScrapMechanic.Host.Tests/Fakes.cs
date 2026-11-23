@@ -13,6 +13,8 @@ internal sealed class FakePlatform : IGamePlatform
     public bool LaunchThrows;
     public bool SteamAvailable = true;
     public bool InspectionThrows;
+    public int Reporters;              // open crash reporter windows
+    public bool LaunchedWithReporter;  // a launch was dispatched while one was still open
     private int nextId = 100;
     public IReadOnlyList<GameProcess> FindGames() => InspectionThrows ? throw new IOException("Inspection denied") : Games.ToArray();
     public Action PrepareLaunch(GameSettings settings)
@@ -21,6 +23,7 @@ internal sealed class FakePlatform : IGamePlatform
         return () =>
         {
             Calls.Add("launch");
+            if (Reporters > 0) LaunchedWithReporter = true;
             if (LaunchThrows) throw new IOException("Launch result is uncertain");
             if (LaunchAppears) Games.Add(new(nextId++, nextId, settings.GameExecutable, 1));
         };
@@ -34,6 +37,7 @@ internal sealed class FakePlatform : IGamePlatform
         return true;
     }
     public void EmergencyKill(GameProcess process) { Calls.Add("kill"); Games.Remove(process); }
+    public int CloseCrashReporters(GameSettings settings) { var count = Reporters; Reporters = 0; return count; }
 }
 
 internal sealed class FakeBackup(FakePlatform platform) : IBackupStore
@@ -61,11 +65,12 @@ internal sealed class Events : IEventSink
 internal sealed class MemoryGuard : ILaunchGuard
 {
     public bool Pending { get; private set; }
+    public DateTimeOffset? PendingSinceUtc { get; private set; }
     public string? StartBlockedReason { get; private set; }
     public GameSettings? ActiveSettings { get; set; }
     public CrashRecoveryState Recovery { get; set; } = new();
-    public void MarkPending() => Pending = true;
-    public void Clear() => Pending = false;
+    public void MarkPending(DateTimeOffset sinceUtc) { Pending = true; PendingSinceUtc = sinceUtc; }
+    public void Clear() { Pending = false; PendingSinceUtc = null; }
     public void BlockStart(string reason) => StartBlockedReason = reason;
     public void UnblockStart() => StartBlockedReason = null;
 }
@@ -114,6 +119,8 @@ internal sealed class Fixture : IDisposable
     public GameSettings Settings { get; set; }
     public HostController Controller { get; }
     public FastClock Clock { get; } = new();
+    // Windows boot time seen by new controllers; default: long before any test launch.
+    public DateTimeOffset? BootTime { get; set; }
     public Fixture(bool emergency = false)
     {
         Directory.CreateDirectory(Root);
@@ -133,6 +140,7 @@ internal sealed class Fixture : IDisposable
         Backups = new(Platform);
         Controller = NewController(emergency);
     }
-    public HostController NewController(bool emergency = false) => new(Platform, Backups, Log, Guard, () => Settings, () => emergency, Clock);
+    public HostController NewController(bool emergency = false) => new(Platform, Backups, Log, Guard, () => Settings, () => emergency, Clock,
+        () => BootTime ?? Clock.GetUtcNow().AddDays(-1));
     public void Dispose() => Directory.Delete(Root, true);
 }

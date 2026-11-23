@@ -14,5 +14,7 @@
   "AutoRestartOnCrash": false,
   "CrashRestartDelaySeconds": 30,
   "CrashRestartMaxAttempts": 3,
-  "CrashRestartWindowSeconds": 900
+  "CrashRestartWindowSeconds": 900,
+  "LaunchUnresolvedClearSeconds": 600,
+  "LaunchTimeoutMaxAttempts": 3
 }

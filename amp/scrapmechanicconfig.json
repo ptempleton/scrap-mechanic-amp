@@ -168,5 +168,25 @@
     "ParamFieldName": "CrashRestartWindowSeconds",
     "DefaultValue": "900",
     "EnumValues": {}
+  },
+  {
+    "DisplayName": "Clear an ignored launch after",
+    "Category": "Scrap Mechanic",
+    "Description": "0 or 120..86400 seconds, more than the startup timeout. A launch with no game process this long after it was sent is treated as ignored by Steam: Start/Stop/Restart work again and, with crash restart on, the agent retries it. 0 = only acknowledge-launch clears it.",
+    "FieldName": "LaunchUnresolvedClearSeconds",
+    "InputType": "number",
+    "ParamFieldName": "LaunchUnresolvedClearSeconds",
+    "DefaultValue": "600",
+    "EnumValues": {}
+  },
+  {
+    "DisplayName": "Maximum ignored launches in a row",
+    "Category": "Scrap Mechanic",
+    "Description": "1..10. Automatic retries of launches Steam ignored stop after this many in a row; a successful start resets the count.",
+    "FieldName": "LaunchTimeoutMaxAttempts",
+    "InputType": "number",
+    "ParamFieldName": "LaunchTimeoutMaxAttempts",
+    "DefaultValue": "3",
+    "EnumValues": {}
   }
 ]

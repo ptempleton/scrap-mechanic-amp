@@ -68,8 +68,39 @@ to the configured Steam executable. URI arguments and confirmation behavior must
 be tested against your Steam client; use Steam mode first.
 
 After a timeout, Steam might still launch later. The persistent `LaunchUnresolved`
-interlock blocks another launch and backups. Inspect Steam and cancel every queued
-dialog/download launch. Once no game exists, explicitly clear it:
+interlock blocks another launch and backups. Since the unreleased automatic launch
+recovery change (not yet validated live), it clears itself without an operator:
+
+- **After a Windows restart.** When the agent starts and the pending launch is older
+  than the boot with no game process, it logs `launch_auto_resolved` (reason
+  `reboot`) and Start works.
+- **When stale.** `LaunchUnresolvedClearSeconds` (default 600, 0 = never) after
+  the launch was sent, with no game process, AMP Start/Stop/Restart and `backup`
+  clear it first (`launch_auto_resolved`, reason `stale`). A fresh lock still
+  refuses Start and names the time it clears itself.
+- **Unattended, with crash restart on.** If the last operation was a start (the
+  game should be running), `AutoRestartOnCrash` is true and the lock goes stale,
+  the agent clears it and schedules a normal crash recovery (countdown, crash
+  archive, one launch, the same attempt budget). Status shows
+  `LaunchRetryWaiting` meanwhile and the AMP bridge stays attached. A recovery
+  launch that Steam ignores no longer blocks Start; after
+  `LaunchTimeoutMaxAttempts` (default 3) ignored launches in a row, recovery
+  stops with `crash_recovery_failed` as before.
+
+Before every launch the agent also closes BugSplat crash reporter windows
+(`BsSndRpt.exe`/`BsSndRpt64.exe` from the game folder, this session only) left
+by an earlier crash, logging `crash_reporter_closed`.
+
+Live incident 2026-11-23: the game crashed (BugSplat) at 06:04 UTC with crash
+restart off. AMP's 09:00 schedule took the backup and sent the Steam launch, but no
+game process appeared within the startup timeout, and Start stayed refused until
+manual action. **Why Steam ignored that launch is unknown.** Steam showed the game
+as not running when checked. A lingering crash reporter is only one possibility;
+a Steam update or dialog is another. Check `crash_reporter_closed` in the agent
+log if it happens again.
+
+To clear the lock by hand (or with `LaunchUnresolvedClearSeconds` 0), inspect Steam
+and cancel every queued dialog/download launch. Once no game exists, explicitly clear it:
 
 ```powershell
 .\ScrapMechanic.Host.exe acknowledge-launch --confirm --config .\client.json

@@ -15,6 +15,14 @@ Configure these in AMP's Scrap Mechanic category **while the game is stopped**:
 | Crash restart delay | `CrashRestartDelaySeconds` | 30 seconds | 5–600 |
 | Maximum crash restart attempts | `CrashRestartMaxAttempts` | 3 | 1–10 |
 | Crash restart rolling window | `CrashRestartWindowSeconds` | 900 seconds | 60–86400, at least the delay |
+| Clear an ignored launch after | `LaunchUnresolvedClearSeconds` | 600 seconds | 0 (never) or 120–86400, more than the startup timeout |
+| Maximum ignored launches in a row | `LaunchTimeoutMaxAttempts` | 3 | 1–10 |
+
+With crash restart on, a launch Steam ignores (no game process within the startup
+timeout) is also retried once it is `LaunchUnresolvedClearSeconds` old, through the
+same countdown, archive and attempt budget. See
+[TROUBLESHOOTING.md](../TROUBLESHOOTING.md#game-does-not-appear-or-stays-on-loading-screen) for the details; this
+behavior is not yet validated live.
 
 Settings are captured for the running game. Editing the checkbox does not cancel
 an already scheduled recovery: **use AMP Stop**. Stop cancels the wait persistently
@@ -55,11 +63,13 @@ failure with no game process makes the bridge exit with a failure code.
 
 - Backup failure, unresolved launch, failed stop, process conflict or inaccessible
   process inspection blocks automatic relaunch.
-- Steam missing or a failed recovery launch stops recovery and records the error.
-  It does not spend all remaining attempts retrying an uncertain Steam request.
+- Steam missing or a failed launch dispatch stops recovery and records the error.
+  A recovery launch that is sent but never produces a game process is retried
+  once stale (above), up to `LaunchTimeoutMaxAttempts` in a row, then stops.
 - Normal Stop/Restart and explicit emergency termination do not trigger recovery.
 - An initial launch that never reaches its observation interval is not treated as
-  a running-game crash. Its pending-launch interlock remains in effect.
+  a running-game crash. Its pending-launch interlock remains in effect until it is
+  stale; then, with crash restart on, it is retried as above.
 - A hung game whose process still exists is not automatically killed or restarted.
 - The helper cannot recover changes the game never saved, guarantee Steam is
   authenticated, or recover a crash while the agent itself was offline. A pending
@@ -106,8 +116,13 @@ the four settings to an existing AMP instance's interface.
    "AutoRestartOnCrash": false,
    "CrashRestartDelaySeconds": 30,
    "CrashRestartMaxAttempts": 3,
-   "CrashRestartWindowSeconds": 900
+   "CrashRestartWindowSeconds": 900,
+   "LaunchUnresolvedClearSeconds": 600,
+   "LaunchTimeoutMaxAttempts": 3
    ```
+
+   (The last two come with the automatic launch recovery change; add them when
+   upgrading to it, together with its `configmanifest.json`.)
 
    These are properties inside its existing JSON object, not a complete replacement
    file. Ensure comma placement is valid. The helper supplies these defaults when

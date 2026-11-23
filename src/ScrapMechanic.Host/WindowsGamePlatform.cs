@@ -116,6 +116,41 @@ public sealed class WindowsGamePlatform : IGamePlatform
         process?.Kill(entireProcessTree: false);
     }
 
+    public int CloseCrashReporters(GameSettings settings)
+    {
+        // ...\Scrap Mechanic\Release\ScrapMechanic.exe -> ...\Scrap Mechanic\
+        var release = Path.GetDirectoryName(Path.GetFullPath(settings.GameExecutable));
+        var install = release is null ? null : Path.GetDirectoryName(release);
+        if (string.IsNullOrEmpty(install)) return 0;
+        var prefix = install.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var closed = 0;
+        foreach (var name in new[] { "BsSndRpt", "BsSndRpt64" })
+        {
+            foreach (var process in Process.GetProcessesByName(name))
+            {
+                using (process)
+                {
+                    try
+                    {
+                        if (process.HasExited || process.SessionId != SessionId) continue;
+                        var file = process.MainModule?.FileName;
+                        if (file is null || !Path.GetFullPath(file).StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                        process.CloseMainWindow();
+                        if (!process.WaitForExit(5000))
+                        {
+                            process.Kill(entireProcessTree: false);
+                            process.WaitForExit(5000);
+                        }
+                        closed++;
+                    }
+                    catch (InvalidOperationException) { /* Exited meanwhile. */ }
+                    catch (Win32Exception) { /* Not ours to inspect; leave it. */ }
+                }
+            }
+        }
+        return closed;
+    }
+
     private static Process? OpenVerified(GameProcess target)
     {
         Process? process = null;

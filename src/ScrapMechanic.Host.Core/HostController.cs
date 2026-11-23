@@ -3,10 +3,13 @@ namespace ScrapMechanic.Host.Core;
 // Every state transition and backup is serialized, including periodic reconciliation.
 public sealed class HostController(IGamePlatform platform, IBackupStore backups, IEventSink log,
     ILaunchGuard launchGuard, Func<GameSettings> loadSettings, Func<bool> allowEmergencyTermination,
-    TimeProvider? clock = null)
+    TimeProvider? clock = null, Func<DateTimeOffset>? bootTimeUtc = null)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly TimeProvider time = clock ?? TimeProvider.System;
+    private readonly Func<DateTimeOffset> bootTime = bootTimeUtc ??
+        (() => DateTimeOffset.UtcNow - TimeSpan.FromMilliseconds(Environment.TickCount64));
+    private bool bootChecked;
     private GameProcess? managed;
     private GameSettings? activeSettings = launchGuard.ActiveSettings;
     private string? failure;
@@ -21,7 +24,10 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
         {
             // Cancel before reconciliation so Stop also wins when it first discovers the exit.
             if (command is "stop" or "restart") CancelRecovery();
+            ResolveAfterReboot();
             Reconcile();
+            // An operator command is a deliberate retry: a stale unresolved launch no longer blocks it.
+            if (command is "start" or "stop" or "restart" or "backup") ClearStaleLaunch("stale");
             switch (command)
             {
                 case "status": return new(true, "Process observation only; multiplayer readiness is unverified.", Status());
@@ -83,9 +89,11 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
         if (!await gate.WaitAsync(0)) return;
         try
         {
+            ResolveAfterReboot();
             Reconcile();
             if (launchGuard.Recovery.DueUtc is { } due && time.GetUtcNow() >= due)
                 await Recover();
+            else RetryUnresolvedLaunch();
         }
         catch (Exception ex)
         {
@@ -104,7 +112,7 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
     }
 
     private HostStatus Status() => new(managed is not null ? (stopRequested ? "StopFailed" : "Running") :
-        launchGuard.Pending ? "LaunchUnresolved" : recovering ? "Recovering" :
+        launchGuard.Pending ? (LaunchRetryArmed() ? "LaunchRetryWaiting" : "LaunchUnresolved") : recovering ? "Recovering" :
         launchGuard.Recovery.DueUtc is not null ? "RecoveryWaiting" :
         failure is null && launchGuard.StartBlockedReason is null ? "Stopped" : "Faulted",
         managed?.Id, platform.SessionId, false, launchGuard.Recovery.DueUtc is { } due
@@ -149,6 +157,50 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
         }
     }
 
+    // A restart of Windows ends any Steam launch that was still queued, so a lock older than the
+    // boot (with no game process) cannot hide a late launch any more.
+    private void ResolveAfterReboot()
+    {
+        if (bootChecked) return;
+        if (launchGuard.Pending && launchGuard.PendingSinceUtc is { } since && bootTime() > since && platform.FindGames().Count == 0)
+        {
+            launchGuard.Clear();
+            failure = null;
+            log.Write("launch_auto_resolved", "Windows restarted after the unresolved launch and no game process exists; the pending-launch interlock was cleared.",
+                new { reason = "reboot", since });
+        }
+        bootChecked = true;
+    }
+
+    // No game process appeared LaunchUnresolvedClearSeconds after the dispatch: treat the launch as
+    // ignored by Steam and clear the interlock. A process that does appear is attached by Reconcile.
+    private bool ClearStaleLaunch(string reason, GameSettings? settings = null)
+    {
+        if (managed is not null || !launchGuard.Pending || launchGuard.PendingSinceUtc is not { } since) return false;
+        settings ??= Settings(); // Operator command: the current settings file decides.
+        if (settings.LaunchUnresolvedClearSeconds == 0 ||
+            time.GetUtcNow() - since < TimeSpan.FromSeconds(settings.LaunchUnresolvedClearSeconds)) return false;
+        if (platform.FindGames().Count != 0) return false;
+        launchGuard.Clear();
+        failure = null;
+        log.Write("launch_auto_resolved", "No game process appeared after the unresolved launch; the pending-launch interlock was cleared.",
+            new { reason, since, settings.LaunchUnresolvedClearSeconds });
+        return true;
+    }
+
+    // The game should be running (last operation was a start), crash recovery is on and the timeout
+    // cap is not reached: a launch Steam ignored will be retried once it is stale.
+    private bool LaunchRetryArmed() => managed is null && launchGuard.Pending && launchGuard.Recovery.DueUtc is null &&
+        launchGuard.StartBlockedReason is null && activeSettings is { AutoRestartOnCrash: true, LaunchUnresolvedClearSeconds: > 0 } settings &&
+        launchGuard.Recovery.LaunchTimeouts < settings.LaunchTimeoutMaxAttempts;
+
+    // Unattended retry through the normal crash-recovery budget and archive.
+    private void RetryUnresolvedLaunch()
+    {
+        if (!LaunchRetryArmed() || !ClearStaleLaunch("unattended", activeSettings)) return;
+        ScheduleRecovery(activeSettings!);
+    }
+
     private async Task Start(GameSettings? recoverySettings = null)
     {
         if (launchGuard.StartBlockedReason is not null) throw new HostOperationException(launchGuard.StartBlockedReason);
@@ -160,16 +212,26 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
             recoveryArmed = true;
             return; // Idempotent reconnect, never launches a second copy.
         }
-        if (launchGuard.Pending) throw new HostOperationException("An earlier launch is unresolved. Inspect Steam before acknowledge-launch CONFIRM.");
         var settings = recoverySettings ?? Settings();
+        if (launchGuard.Pending)
+        {
+            var clears = settings.LaunchUnresolvedClearSeconds > 0 && launchGuard.PendingSinceUtc is { } since
+                ? $" It clears itself at {since.AddSeconds(settings.LaunchUnresolvedClearSeconds):O} if no game process appears, or inspect Steam before acknowledge-launch CONFIRM."
+                : " Inspect Steam before acknowledge-launch CONFIRM.";
+            throw new HostOperationException("An earlier launch is unresolved." + clears);
+        }
         settings.Validate();
         AssertStoppedProcesses();
+        // A crash reporter left open by an earlier crash is one possible reason Steam ignores a launch.
+        var reporters = platform.CloseCrashReporters(settings);
+        if (reporters > 0)
+            log.Write("crash_reporter_closed", "Closed crash reporter windows left by an earlier game crash before launching.", new { count = reporters });
         // Missing Steam/files or other preparation errors have not sent a launch.
         // They must remain retryable without acknowledging an uncertain launch.
         var launch = platform.PrepareLaunch(settings);
         activeSettings = settings;
         launchGuard.ActiveSettings = settings;
-        launchGuard.MarkPending(); // Survives an agent crash or a delayed Steam launch.
+        launchGuard.MarkPending(time.GetUtcNow()); // Survives an agent crash or a delayed Steam launch.
         log.Write("start_requested", "Requesting Steam game startup.", new { settings.LaunchMode });
         launch();
         await ObserveStable(settings);
@@ -189,6 +251,7 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
                 if (time.GetUtcNow() - stableSince >= TimeSpan.FromSeconds(settings.StartupStableSeconds))
                 {
                     launchGuard.Clear();
+                    if (launchGuard.Recovery.LaunchTimeouts != 0) launchGuard.Recovery = launchGuard.Recovery with { LaunchTimeouts = 0 };
                     failure = null;
                     recoveryArmed = true;
                     log.Write("started", "Game process remained present for the configured observation interval. Multiplayer is unverified.", managed);
@@ -198,7 +261,8 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
             else { last = null; stableSince = null; }
             await Delay(250);
         }
-        throw new HostOperationException("Startup timed out. Steam may still launch later; no automatic retry or termination.");
+        launchGuard.Recovery = launchGuard.Recovery with { LaunchTimeouts = launchGuard.Recovery.LaunchTimeouts + 1 };
+        throw new LaunchTimeoutException("Startup timed out. Steam may still launch later; the launch interlock clears itself after LaunchUnresolvedClearSeconds without a game process.");
     }
 
     private async Task<string?> Stop()
@@ -293,15 +357,23 @@ public sealed class HostController(IGamePlatform platform, IBackupStore backups,
             // An interrupted archive/relaunch requires inspection after agent restart, never a blind retry.
             launchGuard.BlockStart("Crash recovery was interrupted. Inspect Steam and run a stopped backup before starting.");
             await Backup(settings, postCrash: true); // Mandatory even if BackupOnStop is disabled.
-            launchGuard.Recovery = new()
+            launchGuard.Recovery = launchGuard.Recovery with
             {
-                Attempts = [.. attempts, time.GetUtcNow()], NeedsArchive = true
+                Attempts = [.. attempts, time.GetUtcNow()], NeedsArchive = true, DueUtc = null
             };
             launchGuard.UnblockStart();
             log.Write("crash_recovery_attempt", "Requesting a bounded recovery launch.", new { attempt = attempts.Length + 1 });
             await Start(settings);
             launchGuard.Recovery = launchGuard.Recovery with { NeedsArchive = false };
             log.Write("crash_recovery_succeeded", "Game process observed again; multiplayer readiness and world consistency remain unverified.", managed);
+        }
+        catch (LaunchTimeoutException ex) when (launchGuard.Recovery.LaunchTimeouts < (activeSettings?.LaunchTimeoutMaxAttempts ?? 1))
+        {
+            // Steam ignored the launch. Keep the interlock (a late launch is still possible); once it
+            // is stale with no game process, RetryUnresolvedLaunch schedules another bounded attempt.
+            failure = ex.Message;
+            log.Write("crash_recovery_launch_timeout", "Recovery launch was not observed; recovery retries once the launch is stale.",
+                new { launchGuard.Recovery.LaunchTimeouts });
         }
         catch (Exception ex) { FailRecovery(ex.Message); }
         finally { recovering = false; }

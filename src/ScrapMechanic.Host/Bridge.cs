@@ -10,8 +10,9 @@ public static class Bridge
         void Print(Reply reply) => output.WriteLine(JsonSerializer.Serialize(reply, ConfigJson.Options));
         var started = await send("start");
         Print(started);
-        static bool Waiting(HostStatus? status) => status?.State is "RecoveryWaiting" or "Recovering";
-        if (!started.Ok || (started.Status?.ProcessId is null && !Waiting(started.Status))) return 2;
+        static bool Waiting(HostStatus? status) => status?.State is "RecoveryWaiting" or "Recovering" or "LaunchRetryWaiting";
+        // A start Steam ignored stays attached while the agent owns the retry (LaunchRetryWaiting).
+        if ((!started.Ok || started.Status?.ProcessId is null) && !Waiting(started.Status)) return 2;
         output.WriteLine(Waiting(started.Status) ? "SM_CRASH_RECOVERY_WAITING multiplayer_readiness=unverified" :
             "SM_PROCESS_RUNNING multiplayer_readiness=unverified");
         var lastStatus = started.Status;

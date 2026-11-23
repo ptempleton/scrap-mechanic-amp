@@ -220,7 +220,7 @@ Sync("file state survives reload and malformed state fails closed", () =>
     using var f = new Fixture();
     var path = Path.Combine(f.Root, "state.json");
     var state = new FileLaunchGuard(path);
-    state.MarkPending(); state.BlockStart("blocked"); state.ActiveSettings = f.Settings;
+    state.MarkPending(DateTimeOffset.UtcNow); state.BlockStart("blocked"); state.ActiveSettings = f.Settings;
     var reloaded = new FileLaunchGuard(path);
     Check(reloaded.Pending && reloaded.StartBlockedReason == "blocked" && reloaded.ActiveSettings == f.Settings);
     reloaded.Clear(); reloaded.UnblockStart();
@@ -387,6 +387,7 @@ Sync("structured logger tolerates a failed disk write", () =>
 });
 
 CrashRecoveryTests.Register(Test);
+LaunchRecoveryTests.Register(Test);
 
 var failures = 0;
 foreach (var (name, run) in tests)

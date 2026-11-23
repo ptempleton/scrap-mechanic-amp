@@ -21,6 +21,10 @@ public sealed record GameSettings
     public int CrashRestartDelaySeconds { get; init; } = 30;
     public int CrashRestartMaxAttempts { get; init; } = 3;
     public int CrashRestartWindowSeconds { get; init; } = 900;
+    // A pending launch with no game process this long after dispatch is cleared automatically
+    // (by operator Start/Stop/Restart/backup, or unattended crash recovery). 0 = acknowledgement only.
+    public int LaunchUnresolvedClearSeconds { get; init; } = 600;
+    public int LaunchTimeoutMaxAttempts { get; init; } = 3;
 
     public void Validate()
     {
@@ -45,6 +49,13 @@ public sealed record GameSettings
         Range(CrashRestartWindowSeconds, 60, 86400, nameof(CrashRestartWindowSeconds));
         if (CrashRestartWindowSeconds < CrashRestartDelaySeconds)
             throw new InvalidDataException("Crash restart window must be at least the restart delay.");
+        if (LaunchUnresolvedClearSeconds != 0)
+        {
+            Range(LaunchUnresolvedClearSeconds, 120, 86400, nameof(LaunchUnresolvedClearSeconds));
+            if (LaunchUnresolvedClearSeconds <= StartupTimeoutSeconds)
+                throw new InvalidDataException("LaunchUnresolvedClearSeconds must be 0 or more than StartupTimeoutSeconds.");
+        }
+        Range(LaunchTimeoutMaxAttempts, 1, 10, nameof(LaunchTimeoutMaxAttempts));
     }
 
     private static void Range(int value, int min, int max, string name)

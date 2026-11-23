@@ -106,6 +106,23 @@ This feature has not yet been tested against a real crashing game or enabled on
 the production world. The new four AMP settings require deployment/UI validation.
 See [CRASH-RECOVERY.md](CRASH-RECOVERY.md) for the disposable-world test.
 
+## Automatic launch recovery, 2026-11-23 (not yet validated live)
+
+Incident: the game crashed at 06:04 UTC with crash restart off. AMP's 09:00
+schedule backed up and sent the Steam launch; no game process appeared within the
+startup timeout, and the persistent interlock refused every later Start until
+manual acknowledgement. Why Steam ignored the launch is unknown (Steam showed the
+game as not running; a lingering BugSplat reporter is one unconfirmed possibility).
+
+The change clears the interlock after a Windows restart, or once
+`LaunchUnresolvedClearSeconds` old with no game process (operator commands, and
+unattended through crash recovery when it is on), caps ignored launches in a row
+with `LaunchTimeoutMaxAttempts`, and closes lingering crash reporters before each
+launch. The synthetic harness covers each rule. It was written without a local
+.NET SDK or Python, so it had not been compiled or run when committed: run
+`.\scripts\Test.ps1` on Windows before packaging. Nothing here has been
+exercised against Steam, AMP or the real crash reporter.
+
 ## Package build versus deployed build
 
 The installed review.3 ZIP contains portable DLLs compiled on macOS with debug symbols

@@ -1,6 +1,6 @@
 # Scrap Mechanic AMP review package
 
-Version: **0.1.0-review.4**. Windows-only community integration, MIT license.
+Version: **0.1.0-review.5**. Windows-only community integration, MIT license.
 This is a working prototype for CubeCoders review, not an official AMP release.
 
 This update adds opt-in crash recovery with separate crash archives, a delay and

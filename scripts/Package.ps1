@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.1.0-review.4',
+    [string]$Version = '0.1.0-review.5',
     [string]$OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'artifacts/releases')
 )
 $ErrorActionPreference = 'Stop'
